@@ -1,0 +1,21 @@
+{
+    "name": "google_search",
+    "description": "Searches Google using Serper API and returns structured results.",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "q": {
+                "type": "string",
+                "description": "Search query"
+            },
+            "num": {
+                "type": "number",
+                "description": "Number of results",
+                "default": 5
+            }
+        },
+        "required": [
+            "q"
+        ]
+    }
+}

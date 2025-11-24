@@ -1,0 +1,16 @@
+{
+    "name": "mermaid_diagram",
+    "description": "Generates Mermaid diagram code from a description.",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "description": {
+                "type": "string",
+                "description": "Explain what to draw in Mermaid"
+            }
+        },
+        "required": [
+            "description"
+        ]
+    }
+}
