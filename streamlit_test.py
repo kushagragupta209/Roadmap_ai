@@ -1,22 +1,13 @@
 import streamlit as st
 import uuid
-from groq_llama import model_call
+from groq_llama import model_call, model_call_question
+import json
 
 # ----------------------------------------------------
 # MUST BE FIRST STREAMLIT COMMAND
 # ----------------------------------------------------
 st.set_page_config(page_title="Interactive Roadmap", layout="wide")
 
-
-# ----------------------------------------------------
-# DATA
-# ----------------------------------------------------
-@st.cache_resource
-def load_data_once():
-    return model_call()
-
-data = load_data_once() 
-print(data)
 
 # ----------------------------------------------------
 # FUNCTION: INTERACTIVE MERMAID GRAPH (Zoom + Pan)
@@ -68,78 +59,149 @@ def mermaid_interactive(mermaid_code: str, height=650):
     st.components.v1.html(html_code, height=height + 50)
 
 
-# ----------------------------------------------------
-# SIDEBAR NAVIGATION (Dropdown)
-# ----------------------------------------------------
-st.sidebar.title("📂 Navigation")
-view_choice = st.sidebar.selectbox(
-    "Go to:",
-    ["🗺️ Roadmap", "📚 Topics"]
-)
-
-# Normalize selection for logic
-if "Roadmap" in view_choice:
-    view_choice = "Roadmap"
-else:
-    view_choice = "Topics"
-
 
 # ----------------------------------------------------
-# MAIN TITLE
+# MAIN PROCEED FUNCTION
 # ----------------------------------------------------
-st.title("📘 Interactive Probability & Statistics Roadmap")
-st.write("A modern, interactive learning dashboard.")
+def proceed(query_input, syllabus_input, data):
 
-
-# ----------------------------------------------------
-# VIEW: INTERACTIVE ROADMAP
-# ----------------------------------------------------
-if view_choice == "Roadmap":
-
-    st.subheader("🗺️ Interactive Roadmap")
-    st.caption("Zoom with scroll • Drag to move • Reset anytime")
-
-    mermaid_interactive(data["roadmap_mermaid"], height=700)
-
-    st.success("Tip: Use touchpad gestures or your mouse wheel to zoom smoothly.")
-
-
-# ----------------------------------------------------
-# VIEW: TOPIC DETAILS
-# ----------------------------------------------------
-else:
-    st.subheader("📚 Explore Topics")
-
-    # 1st dropdown → choose a topic
-    topic_names = [t["name"] for t in data["topics"]]
-    selected_topic_name = st.selectbox("Choose a Topic:", topic_names)
-
-    # get topic dict
-    selected_topic = next(t for t in data["topics"] if t["name"] == selected_topic_name)
-
-    # 2nd dropdown → choose its subtopic
-    subtopic_names = [s["title"] for s in selected_topic["subtopics"]]
-    selected_subtopic_title = st.selectbox("Choose a Subtopic:", subtopic_names)
-
-    # get subtopic dict
-    selected_subtopic = next(
-        s for s in selected_topic["subtopics"] 
-        if s["title"] == selected_subtopic_title
+    # Sidebar navigation (NO NORMALIZATION)
+    view_choice = st.sidebar.selectbox(
+        "Go to:",
+        ["Roadmap", "Topics", "Practice"],
+        key="view_choice"
     )
 
-    # UI section
-    st.markdown(f"## 📌 {selected_subtopic_title}")
+    if view_choice == "Roadmap":
 
-    with st.expander("🎥 Study Resources", expanded=True):
-        for link in selected_subtopic["study_links"]:
-            st.markdown(f"- [Open]({link})")
+        st.subheader("🗺️ Interactive Roadmap")
+        st.caption("Zoom with scroll • Drag to move • Reset anytime")
 
-    with st.expander("🧠 Practice Problems"):
-        for link in selected_subtopic["practice_links"]:
-            st.markdown(f"- [Open]({link})")
+        mermaid_interactive(data["roadmap_mermaid"], height=700)
 
-    with st.expander("📝 Previous Year Questions"):
-        for link in selected_subtopic["previous_year_questions"]:
-            st.markdown(f"- [Open]({link})")
+        st.success("Tip: Use touchpad gestures or your mouse wheel to zoom smoothly.")
+    
+    elif view_choice == "Practice":
+        st.subheader("📘 Practice Questions")
+
+        topic_names = [t["name"] for t in data["topics"]]
+
+        selected_topic_name = st.selectbox(
+            "Select Topic:",
+            topic_names,
+            key="practice_topic_choice"
+        )
+
+        selected_topic_1 = next(t for t in data["topics"] if t["name"] == selected_topic_name)
+
+        subtopic_names_1 = [s["title"] for s in selected_topic_1["subtopics"]]
+
+        selected_subtopic_title_1 = st.selectbox(
+            "Select Subtopic:",
+            subtopic_names_1,
+            key="practice_subtopic_choice"
+        )
+
+        # 👉 ONLY BUTTON VISIBLE BEFORE CLICK
+        if st.button("Generate Practice Questions"):
+            st.session_state.practice_questions = model_call_question(
+                selected_subtopic_title_1,
+                selected_topic_name,
+                "difficult"
+            )
+            st.session_state.practice_questions_clicked = True
+
+        # 👉 SHOW QUESTIONS ONLY AFTER CLICK
+        if st.session_state.get("practice_questions_clicked", False):
+
+            questions_data = st.session_state.practice_questions
+
+            if isinstance(questions_data, dict) and "questions" in questions_data:
+                for i, q in enumerate(questions_data["questions"], start=1):
+                    with st.expander(f"Question {i}"):
+                        if isinstance(q, dict):
+                            st.write(f"**{q.get('question', 'No question')}**")
+
+                            if "options" in q:
+                                st.write("**Options:**")
+                                for opt in q["options"]:
+                                    st.write(f"- {opt}")
+
+                            if "answer" in q:
+                                with st.expander("Answer"):
+                                    st.success(q["answer"])
+
+                            if "explanation" in q:
+                                with st.expander("Explanation"):
+                                    st.info(q["explanation"])
+
+                        elif isinstance(q, str):
+                            st.write(q)
+
+            elif isinstance(questions_data, list):
+                for i, q in enumerate(questions_data, start=1):
+                    with st.expander(f"Question {i}"):
+                        st.write(q)
+
+            else:
+                st.error("⚠️ Could not parse practice questions.")
+
+    else:
+        st.subheader("Explore Topics")
+
+        topic_names = [t["name"] for t in data["topics"]]
+
+        selected_topic_name = st.selectbox(
+            "Topic:",
+            topic_names,
+            key="topic_choice"
+        )
+
+        selected_topic = next(t for t in data["topics"] if t["name"] == selected_topic_name)
+
+        subtopic_names = [s["title"] for s in selected_topic["subtopics"]]
+
+        selected_subtopic_title = st.selectbox(
+            "Subtopic:",
+            subtopic_names,
+            key="subtopic_choice"
+        )
+
+        selected_subtopic = next(
+            s for s in selected_topic["subtopics"]
+            if s["title"] == selected_subtopic_title
+        )
+
+        with st.expander("Study Resources", expanded=True):
+            for link in selected_subtopic["study_links"]:
+                st.markdown(f"- [Open]({link})")
+
+        with st.expander("Practice Problems"):
+            for link in selected_subtopic["practice_links"]:
+                st.markdown(f"- [Open]({link})")
+
+        with st.expander("Previous Year Questions"):
+            for link in selected_subtopic["previous_year_questions"]:
+                st.markdown(f"- [Open]({link})")
 
     st.info("You can switch back to the roadmap from the left sidebar.")
+
+
+@st.cache_resource
+def load_data_once(query_input, syllabus_input):
+    return model_call(query_input, syllabus_input)
+
+
+query_input = st.sidebar.text_input("What exam are you preparing for?", key="query_input")
+syllabus_input = st.sidebar.text_input("Add Syllabus/Topic/Subject?", key="subject_input")
+
+if "proceed_clicked" not in st.session_state:
+    st.session_state.proceed_clicked = False
+
+if st.sidebar.button("Generate"):
+    st.session_state.proceed_clicked = True
+    st.session_state.data = load_data_once(query_input, syllabus_input)
+
+if st.session_state.proceed_clicked:
+    print("Data - ", st.session_state.data)
+    proceed(query_input, syllabus_input, st.session_state.data)
