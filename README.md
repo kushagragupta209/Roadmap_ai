@@ -1,6 +1,6 @@
-maiper — ReAct-based Agentic LLM Pipeline using Groq LLaMA
+Underlamp — ReAct-based Agentic LLM Pipeline using Groq LLaMA
 
-maiper is an agentic AI project that uses the ReAct (Reason + Act) prompting framework with Groq’s ultra-fast LLaMA models to build structured, tool-using AI workflows.
+Underlamp is an agentic AI project that uses the ReAct (Reason + Act) prompting framework with Groq’s ultra-fast LLaMA models to build structured, tool-using AI workflows.
 This project demonstrates how to generate structured outputs such as roadmaps, JSON results, and agent-driven reasoning using custom prompts.
 
 ⸻
